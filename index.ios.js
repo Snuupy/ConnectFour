@@ -32,9 +32,6 @@ var Connect4 = React.createClass({
 
 var Interface= React.createClass({
   getInitialState() {
-    this.setState({
-      socket: this.props.socket
-    });
     // const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
     //
     // fetch('https://hohoho-backend.herokuapp.com/messages', {
@@ -51,7 +48,7 @@ var Interface= React.createClass({
     //   })
     // })
     return{
-      initialRow: [1, 2, 3, 4, 5, 6, 7],
+      initialRow: [0, 1, 2, 3, 4, 5, 6],
       dataSource: [["0","0","0","0","0","0","0"],
       ["0","0","0","0","0","0","0"],
       ["0","0","0","0","0","0","0"],
@@ -61,8 +58,42 @@ var Interface= React.createClass({
       ["0","0","0","0","0","0","0"]]
     }
   },
-  press(row){
-    alert(row);
+  componentDidMount(){
+    this.setState({
+      socket: this.props.socket
+    }, () => {
+        var self = this;
+
+        this.state.socket.on('gameHasEnded', function(data){
+          alert("Game has ended.");
+        });
+        this.state.socket.on('sendGameBoard', function(data){
+          self.setState({
+            dataSource: data
+          });
+        });
+
+      });
+  },
+  press(column){
+    var currentUsername;
+    var currentId;
+
+    AsyncStorage.getItem('user')
+    .then(result => {
+      var parsedResult = JSON.parse(result);
+      console.log(parsedResult.username, parsedResult.id);
+      currentUsername = parsedResult.username;
+      currentId = parsedResult.id;
+
+      this.state.socket.emit('insertToken', {
+        username: parsedResult.username,
+        id: parsedResult.id,
+        colNum: column
+      });
+
+    })
+    .catch(err => console.log(err));
   },
   render(){
     return (
@@ -105,6 +136,7 @@ var Interface= React.createClass({
 
 
 var Games = React.createClass({
+
   getInitialState() {
     const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
@@ -158,7 +190,15 @@ var Games = React.createClass({
       });
 
       var gameStarted = () => {
-        //go to interface page here
+        this.props.navigator.push({
+          component: Interface,
+          title: "Interface",
+          passProps: {
+            username: this.props.username,
+            id: this.props.id,
+            socket: this.state.socket
+          }
+        });
       }
 
     })
@@ -297,7 +337,6 @@ var Login = React.createClass({
     })
     .then((response) => response.json())
     .then((responseJson) => {
-
       this.props.navigator.push({
         component: Games,
         title: "User List",
